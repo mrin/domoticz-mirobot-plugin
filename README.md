@@ -53,6 +53,10 @@ Now go to **Setup** -> **Hardware** in your Domoticz interface and add type with
 
 After clicking on the Add button the two new devices are available in **Setup** -> **Devices**.
 
+## Screenshots
+
+![status_unit](https://user-images.githubusercontent.com/93999/29568433-0da95692-8759-11e7-8706-344c02536d6a.png)
+![control_unit](https://user-images.githubusercontent.com/93999/29568435-13645e10-8759-11e7-92d8-5fe130912c78.png)
 
 ### Token on rooted android device
 

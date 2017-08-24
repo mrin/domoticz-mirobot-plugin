@@ -34,24 +34,32 @@ class BasePlugin:
         "SelectorStyle": "0"
     }
 
+    iconName = 'XiaomiRobotVacuum'
+
     statusUnit = 1
     controlUnit = 2
+    fanUnit = 3
 
+    # statuses by protocol
+    # https://github.com/marcelrv/XiaomiRobotVacuumProtocol/blob/master/StatusMessage.md
     states = {
-        1: 'Unknown 1',
-        2: 'Charger disconnected',
-        3: 'Idle',
+        0: 'Unknown 0',
+        1: 'Initiating',
+        2: 'Sleeping',
+        3: 'Waiting',
         4: 'Unknown 4',
         5: 'Cleaning',
-        6: 'Returning home',
+        6: 'Back to home',
         7: 'Manual mode',
         8: 'Charging',
-        9: 'Unknown 9',
+        9: 'Charging Error',
         10: 'Paused',
         11: 'Spot cleaning',
-        12: 'Error',
-        13: 'Unknown 13',
+        12: 'In Error',
+        13: 'Shutting down',
         14: 'Updating',
+        15: 'Docking',
+        100: 'Full'
     }
 
     def onStart(self):
@@ -59,17 +67,19 @@ class BasePlugin:
             Domoticz.Debugging(1)
             DumpConfigToLog()
 
-        if Parameters['Key'] not in Images: Domoticz.Image('icons.zip').Create()
+        if self.iconName not in Images: Domoticz.Image('icons.zip').Create()
+        iconID = Images[self.iconName].ID
 
         if self.statusUnit not in Devices:
-            Domoticz.Device(Name='Status', Unit=self.statusUnit, Type=17,  Switchtype=17,
-                            Image=Images[Parameters['Key']].ID).Create()
+            Domoticz.Device(Name='Status', Unit=self.statusUnit, Type=17,  Switchtype=17, Image=iconID).Create()
 
         if self.controlUnit not in Devices:
             Domoticz.Device(Name='Control', Unit=self.controlUnit, TypeName='Selector Switch',
-                            Image=Images[Parameters['Key']].ID, Options=self.controlOptions).Create()
-                            
-        UpdateDevice(self.statusUnit, 0, '', 255)
+                            Image=iconID, Options=self.controlOptions).Create()
+
+        if self.fanUnit not in Devices:
+            Domoticz.Device(Name='Fan Level', Unit=self.fanUnit, Type=244, Subtype=73, Switchtype=7,
+                            Image=iconID).Create()
 
         Domoticz.Heartbeat(int(Parameters['Mode2']))
 
@@ -85,7 +95,7 @@ class BasePlugin:
 
     def onCommand(self, Unit, Command, Level, Hue):
         Domoticz.Debug("onCommand called for Unit " + str(Unit) + ": Command '" + str(Command) + "', Level: " + str(Level))
-        
+
         if self.statusUnit not in Devices:
             Domoticz.Error('Status device is required')
             return
@@ -98,11 +108,11 @@ class BasePlugin:
             
             elif 'Off' == Command and self.isON:
                 if sDevice.sValue == self.states[11] and callWrappedCommand('pause'): # Stop if Spot cleaning
-                    UpdateDevice(Unit, 0, self.states[3]) # Idle
+                    UpdateDevice(Unit, 0, self.states[3]) # Waiting
                 elif callWrappedCommand('home'):
-                    UpdateDevice(Unit, 1, self.states[6]) # Returning home
+                    UpdateDevice(Unit, 1, self.states[6]) # Back to home
 
-        if self.controlUnit == Unit:
+        elif self.controlUnit == Unit:
             
             if Level == 10: # Clean
                 if callWrappedCommand('start') and self.isOFF:
@@ -110,8 +120,8 @@ class BasePlugin:
                     
             elif Level == 20: # Home
                 if callWrappedCommand('home') and sDevice.sValue in [
-                    self.states[5], self.states[3], self.states[10]]: # Cleaning, Idle, Paused
-                    UpdateDevice(self.statusUnit, 1, self.states[6])  # Returning home
+                    self.states[5], self.states[3], self.states[10]]: # Cleaning, Waiting, Paused
+                    UpdateDevice(self.statusUnit, 1, self.states[6])  # Back to home
             
             elif Level == 30: # Spot
                 if callWrappedCommand('spot') and self.isOFF and sDevice.sValue != self.states[8]: # Spot cleaning will not start if Charging
@@ -120,16 +130,21 @@ class BasePlugin:
             elif Level == 40: # Pause
                 if callWrappedCommand('pause') and self.isON:
                     if sDevice.sValue == self.states[11]: # For Spot cleaning - Pause treats as Stop
-                        UpdateDevice(self.statusUnit, 0, self.states[3])  # Idle
+                        UpdateDevice(self.statusUnit, 0, self.states[3])  # Waiting
                     else:
                         UpdateDevice(self.statusUnit, 0, self.states[10])  # Paused
             
             elif Level == 50: # Stop
-                if callWrappedCommand('stop') and self.isON and sDevice.sValue not in [self.states[11], self.states[6]]: # Stop doesn't work for Spot cleaning, Returning home
-                    UpdateDevice(self.statusUnit, 0, self.states[3]) # Idle
+                if callWrappedCommand('stop') and self.isON and sDevice.sValue not in [self.states[11], self.states[6]]: # Stop doesn't work for Spot cleaning, Back to home
+                    UpdateDevice(self.statusUnit, 0, self.states[3]) # Waiting
                 
             elif Level == 60: # Find 
                 callWrappedCommand('find')
+
+        elif self.fanUnit == Unit:
+            if Level == 0: Level = 1
+            if callWrappedCommand('fan_level', Level): UpdateDevice(self.fanUnit, 2, str(Level))
+
 
     def onNotification(self, Name, Subject, Text, Status, Priority, Sound, ImageFile):
         Domoticz.Debug("Notification: " + Name + "," + Subject + "," + Text + "," + Status + "," + str(Priority) + "," + Sound + "," + ImageFile)
@@ -143,8 +158,10 @@ class BasePlugin:
 
         UpdateDevice(self.statusUnit,
                      (1 if result['state_code'] in [5, 6, 11] else 0), # ON is Cleaning, Return home, Spot cleaning
-                     result['state'],
+                     self.states.get(result['state_code'], 'Undefined'),
                      result['battery'])
+        UpdateDevice(self.fanUnit, 2, str(result['fan_level']))
+
     @property              
     def isON(self):
         return Devices[self.statusUnit].nValue == 1
@@ -154,10 +171,10 @@ class BasePlugin:
         return Devices[self.statusUnit].nValue == 0
 
 
-def callWrappedCommand(cmd=None, cmd_value=None):
+def callWrappedCommand(cmd_name=None, cmd_value=None):
     call_params = [Parameters['Mode3'], os.path.dirname(__file__) + '/mirobo-wrapper.py', Parameters['Address'], Parameters['Mode1']]
-    if cmd: call_params.append(cmd)
-    if cmd_value: call_params.append(cmd_value)
+    if cmd_name: call_params.append(cmd_name)
+    if cmd_value: call_params.append(str(cmd_value))
 
     try:
         call_resp = subprocess.check_output(call_params, universal_newlines=True)

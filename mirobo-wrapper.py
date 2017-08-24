@@ -48,9 +48,8 @@ def vac_status(vac):
 
     return {
         'state_code': res.state_code,
-        'state': res.state,
         'battery': res.battery,
-        'fan_speed': res.fanspeed,
+        'fan_level': res.fanspeed,
         'clean_seconds': res.data["clean_time"],
         'clean_area': res.clean_area
     }
@@ -73,6 +72,10 @@ def vac_home(vac):
 def vac_find(vac):
     return {'code': vac.find()}
 
+def vac_set_fan_level(vac, level):
+    return {'code': vac.set_fan_speed(int(level))}
+
+
 
 vac = get_vac()
 cmd_name = args.cmd[0]
@@ -93,6 +96,8 @@ try:
         print(json.dumps(vac_home(vac)))
     elif cmd_name == 'find':
         print(json.dumps(vac_find(vac)))
+    elif cmd_name == 'fan_level' and len(args.cmd) == 2:
+        print(json.dumps(vac_set_fan_level(vac, args.cmd[1])))
 
 except Exception as e:
     print(json.dumps({

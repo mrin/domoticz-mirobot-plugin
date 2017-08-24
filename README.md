@@ -6,12 +6,14 @@
 
 ## How it works
 
-Plugin provides 2 devices: Status and Control unit.
+Plugin provides 3 devices: Status, Control, Fan Level.
 
-**Status unit**: combined from mediaplayer type and vacuum icon for show current status in readable layout of switch. Status updates by polls 
-(interval) and when you click Control unit (for instant status change)
+**Status**: show current status in readable layout of switch. Status updates by polls 
+(interval) and when you click Control device (for instant status change).
 
-**Control unit**: for sending commands.
+**Control**: for sending commands.
+
+**Fan Level**: for adjusting suck power.
 
 Plugin calls **python-mirobo** (in subprocess) via own wrapper behind for converting results from lib to JSON and then update status of device.
 Domoticz has some limitation in python plugin system, so this lib doesn't work well directly in plugin (plugin halted after first heartbeat).
@@ -58,12 +60,31 @@ After clicking on the Add button the two new devices are available in **Setup** 
 ![status_unit](https://user-images.githubusercontent.com/93999/29568433-0da95692-8759-11e7-8706-344c02536d6a.png)
 ![control_unit](https://user-images.githubusercontent.com/93999/29568435-13645e10-8759-11e7-92d8-5fe130912c78.png)
 
-### Token on rooted android device
+![fan_level](https://user-images.githubusercontent.com/93999/29668575-6906ea22-88e9-11e7-8508-8f0ff48e2f78.png)
 
-Need file miio2.db. 
+### How to get device Token
+
+**Android rooted device** 
+
+*(Also you can share Vacuum via MiHome to the other rooted device)*
+
+Need database file miio2.db which located here: 
 ```
 /data/data/com.xiaomi.smarthome/databases/miio2.db 
 ```
 Open file with any SQLite db editor/manager. Table "devicerecord" with column "token".
 
+**Reset robot**
 
+Install lib and check it
+```
+pip3 install python-mirobo
+mirobo discover
+```
+You should see something like this:
+```
+mirobo.vacuum:  IP 192.168.1.12: Xiaomi Mi Robot Vacuum - token: b'ffffffffffffffffffffffffffffffff'
+```
+
+Reset the robot, then connect to the network its announcing (SSID "rockrobo-XXXX"). 
+Then run ```mirobo discover``` and you should receive token.

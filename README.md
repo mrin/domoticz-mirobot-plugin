@@ -13,7 +13,7 @@ Plugin provides 3 devices: Status, Control, Fan Level.
 
 **Control**: for sending commands.
 
-**Fan Level**: for adjusting suck power.
+**Fan Level**: for adjusting suction power. (MiHome app related: Quiet=38, Balanced=60, Turbo=77, Max=90)
 
 Plugin calls **python-mirobo** (in subprocess) via own wrapper behind for converting results from lib to JSON and then update status of device.
 Domoticz has some limitation in python plugin system, so this lib doesn't work well directly in plugin (plugin halted after first heartbeat).

@@ -3,7 +3,7 @@
 #       Author: mrin, 2017
 #       
 """
-<plugin key="xiaomi-mi-robot-vacuum" name="Xiaomi Mi Robot Vacuum" author="mrin" version="0.0.1" wikilink="https://github.com/mrin/domoticz-mirobot-plugin" externallink="">
+<plugin key="xiaomi-mi-robot-vacuum" name="Xiaomi Mi Robot Vacuum" author="mrin" version="0.0.2" wikilink="https://github.com/mrin/domoticz-mirobot-plugin" externallink="">
     <params>
         <param field="Address" label="IP address" width="200px" required="true" default="192.168.1.12"/>
         <param field="Mode1" label="Token" width="200px" required="true" default="476e6b70343055483230644c53707a12"/>

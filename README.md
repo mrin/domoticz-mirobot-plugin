@@ -50,10 +50,13 @@ Now go to **Setup** -> **Hardware** in your Domoticz interface and add type with
 | IP address | Enter the IP address of your Vacuum (see the MiHome app or router dhcp, should be static) |
 | Token |  This token is only attainable before the device has been connected over the app to your local wifi (or alternatively, if you have paired your rooted mobile device with the vacuum, or if you share access to Vacuum via MiHome to rooted device) |
 | Update interval | In seconds, this determines with which interval the plugin polls the status of Vacuum. Suggested is no lower then 5 sec due timeout in python-mirobo lib, but you can try any.  |
+| Fan Level Type | ```Standard``` - standard set of buttons (values supported by MiHome); ```Slider``` - allow to set custom values, up to 100 (in standard Max=90) (values not supported by MiHome)
 | Python Path | Path to Python 3, default is python3 |
 | Debug | When set to true the plugin shows additional information in the Domoticz log |
 
 After clicking on the Add button the two new devices are available in **Setup** -> **Devices**.
+
+If you want to change ```Fan Level Type``` just disable hardware, update type and enable again. Old device can be deleted manually in Devices menu.
 
 ## Screenshots
 
@@ -61,6 +64,7 @@ After clicking on the Add button the two new devices are available in **Setup** 
 ![control_unit](https://user-images.githubusercontent.com/93999/29568435-13645e10-8759-11e7-92d8-5fe130912c78.png)
 
 ![fan_level](https://user-images.githubusercontent.com/93999/29668575-6906ea22-88e9-11e7-8508-8f0ff48e2f78.png)
+![fan_level2](https://user-images.githubusercontent.com/93999/29713051-86cd023c-89a5-11e7-83cc-5953b8cbbfa5.png)
 
 ### How to get device Token
 

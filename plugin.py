@@ -204,7 +204,7 @@ def callWrappedCommand(cmd_name=None, cmd_value=None):
 
     try:
         call_resp = subprocess.check_output(call_params, universal_newlines=True)
-        Domoticz.Debug(call_resp)
+        Domoticz.Debug('Poll: %s' % call_resp)
         
         try:
             result = json.loads(call_resp)
@@ -214,7 +214,7 @@ def callWrappedCommand(cmd_name=None, cmd_value=None):
             return result
             
         except Exception:
-            Domoticz.Error('callWrappedCommand() json parse exception')
+            Domoticz.Error('callWrappedCommand() json parse exception: %s' % call_resp)
             return None
             
     except Exception as e:

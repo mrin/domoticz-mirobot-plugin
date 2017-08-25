@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('ip', type=str, help='vacuum ip address')
 parser.add_argument('token', type=str, help='token')
 parser.add_argument('cmd', nargs='*')
-parser.add_argument('--id-file', type=str, default=os.path.dirname(__file__) + 'python-mirobo.seq')
+parser.add_argument('--id-file', type=str, default=os.path.dirname(__file__) + '/python-mirobo.seq')
 args = parser.parse_args()
 
 def cleanup(vac, id_file):

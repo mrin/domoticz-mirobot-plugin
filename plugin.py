@@ -8,14 +8,14 @@
         <param field="Address" label="IP address" width="200px" required="true" default="192.168.1.12"/>
         <param field="Mode1" label="Token" width="200px" required="true" default="476e6b70343055483230644c53707a12"/>
         <param field="Mode2" label="Update interval (sec)" width="30px" required="true" default="15"/>
-        <param field="Mode3" label="Fan Level Type" width="200px">
+        <param field="Mode5" label="Fan Level Type" width="200px">
             <options>
                 <option label="Standard (Quiet, Balanced, Turbo, Max)" value="selector" default="true"/>
                 <option label="Slider" value="dimmer"/>
             </options>
         </param>
-        <param field="Mode4" label="Python Path" width="200px" required="true" default="python3"/>
-        <param field="Mode5" label="Debug" width="75px">
+        <param field="Mode3" label="Python Path" width="200px" required="true" default="python3"/>
+        <param field="Mode4" label="Debug" width="75px">
             <options>
                 <option label="True" value="Debug" default="true"/>
                 <option label="False" value="Normal"/>
@@ -76,7 +76,7 @@ class BasePlugin:
     }
 
     def onStart(self):
-        if Parameters['Mode5'] == 'Debug':
+        if Parameters['Mode4'] == 'Debug':
             Domoticz.Debugging(1)
             DumpConfigToLog()
 
@@ -90,11 +90,11 @@ class BasePlugin:
             Domoticz.Device(Name='Control', Unit=self.controlUnit, TypeName='Selector Switch',
                             Image=iconID, Options=self.controlOptions).Create()
 
-        if self.fanDimmerUnit not in Devices and Parameters['Mode3'] == 'dimmer':
+        if self.fanDimmerUnit not in Devices and Parameters['Mode5'] == 'dimmer':
             Domoticz.Device(Name='Fan Level', Unit=self.fanDimmerUnit, Type=244, Subtype=73, Switchtype=7,
                             Image=iconID).Create()
 
-        elif self.fanSelectorUnit not in Devices and Parameters['Mode3'] == 'selector':
+        elif self.fanSelectorUnit not in Devices and Parameters['Mode5'] == 'selector':
             Domoticz.Device(Name='Fan Level', Unit=self.fanSelectorUnit, TypeName='Selector Switch',
                                 Image=iconID, Options=self.fanOptions).Create()
 
@@ -158,11 +158,11 @@ class BasePlugin:
             elif Level == 60: # Find 
                 callWrappedCommand('find')
 
-        elif self.fanDimmerUnit == Unit and Parameters['Mode3'] == 'dimmer':
+        elif self.fanDimmerUnit == Unit and Parameters['Mode5'] == 'dimmer':
             Level = 1 if Level == 0 else 100 if Level > 100 else Level
             if callWrappedCommand('fan_level', Level): UpdateDevice(self.fanDimmerUnit, 2, str(Level))
 
-        elif self.fanSelectorUnit == Unit and Parameters['Mode3'] == 'selector':
+        elif self.fanSelectorUnit == Unit and Parameters['Mode5'] == 'selector':
             num_level = {10: 38, 20: 60, 30: 77, 40: 90}.get(Level, None)
             if num_level and callWrappedCommand('fan_level', num_level): UpdateDevice(self.fanSelectorUnit, 1, str(Level))
 
@@ -182,7 +182,7 @@ class BasePlugin:
                      self.states.get(result['state_code'], 'Undefined'),
                      result['battery'])
 
-        if Parameters['Mode3'] == 'dimmer':
+        if Parameters['Mode5'] == 'dimmer':
             UpdateDevice(self.fanDimmerUnit, 2, str(result['fan_level'])) # nValue=2 for show percentage, instead ON/OFF state
         else:
             level = {38: 10, 60: 20, 77: 30, 90: 40}.get(result['fan_level'], None)
@@ -198,7 +198,7 @@ class BasePlugin:
 
 
 def callWrappedCommand(cmd_name=None, cmd_value=None):
-    call_params = [Parameters['Mode4'], os.path.dirname(__file__) + '/mirobo-wrapper.py', Parameters['Address'], Parameters['Mode1']]
+    call_params = [Parameters['Mode3'], os.path.dirname(__file__) + '/mirobo-wrapper.py', Parameters['Address'], Parameters['Mode1']]
     if cmd_name: call_params.append(cmd_name)
     if cmd_value: call_params.append(str(cmd_value))
 

@@ -32,10 +32,8 @@ It's required for python-mirobo lib.
 Then go to plugin folder and install [python-mirobo](https://github.com/rytilahti/python-mirobo) locally (due issues with python paths) with all dependencies:
 ```
 cd xiaomi-mirobot
-pip3 install python-mirobo zeroconf -t .vendors
+pip3 install python-mirobo -t .vendors
 ```
-
-For update python-mirobo use ```pip3 install python-mirobo -t .vendors --upgrade```
 
 Restart the Domoticz service
 ```
@@ -57,6 +55,20 @@ Now go to **Setup** -> **Hardware** in your Domoticz interface and add type with
 After clicking on the Add button the two new devices are available in **Setup** -> **Devices**.
 
 If you want to change ```Fan Level Type``` just disable hardware, update type and enable again. Old device can be deleted manually in Devices menu.
+
+## How to update plugin
+
+```
+cd domoticz/plugins/xiaomi-mirobot
+git pull
+```
+
+For update python-mirobo use ```pip3 install python-mirobo -t .vendors --upgrade```
+
+Restart the Domoticz service
+```
+sudo service domoticz.sh restart
+```
 
 ## Screenshots
 

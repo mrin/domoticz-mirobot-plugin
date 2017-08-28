@@ -82,7 +82,9 @@ sudo service domoticz.sh restart
 
 ![bat](https://user-images.githubusercontent.com/93999/29769383-c8202814-8bf2-11e7-86b2-3629bfc63dc0.png)
 
-### How to get device Token
+### How to obtain device Token
+
+*Important* For Mi Robot with firmware 3.3.9_003077 or higher use these methods to obtain the device token: https://github.com/jghaanstra/com.xiaomi-miio/blob/master/docs/obtain_token_mirobot_new.md
 
 **Android rooted device** 
 

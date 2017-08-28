@@ -50,7 +50,7 @@ Now go to **Setup** -> **Hardware** in your Domoticz interface and add type with
 | IP address | Enter the IP address of your Vacuum (see the MiHome app or router dhcp, should be static) |
 | Token |  This token is only attainable before the device has been connected over the app to your local wifi (or alternatively, if you have paired your rooted mobile device with the vacuum, or if you share access to Vacuum via MiHome to rooted device) |
 | Update interval | In seconds, this determines with which interval the plugin polls the status of Vacuum. Suggested is no lower then 5 sec due timeout in python-mirobo lib, but you can try any.  |
-| Fan Level Type | ```Standard``` - standard set of buttons (values supported by MiHome); ```Slider``` - allow to set custom values, up to 100 (in standard Max=90) (values not supported by MiHome)
+| Fan Level Type | ```Standard``` - standard set of buttons (values supported by MiHome); ```Slider``` - allow to set custom values, up to 100 (in standard Max=90) (values not supported by MiHome) |
 | Python Path | Path to Python 3, default is python3 |
 | Debug | When set to true the plugin shows additional information in the Domoticz log |
 

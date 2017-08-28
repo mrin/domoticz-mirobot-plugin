@@ -32,7 +32,6 @@ import json
 
 
 class BasePlugin:
-    enabled = False
     controlOptions = {
         "LevelActions": "||||||",
         "LevelNames": "Off|Clean|Home|Spot|Pause|Stop|Find",

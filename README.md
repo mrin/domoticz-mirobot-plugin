@@ -6,7 +6,7 @@
 
 ## How it works
 
-Plugin provides 3 devices: Status, Control, Fan Level.
+Plugin provides: Status, Control, Fan Level and Battery devices.
 
 **Status**: show current status in readable layout of switch. Status updates by polls 
 (interval) and when you click Control device (for instant status change).
@@ -14,6 +14,8 @@ Plugin provides 3 devices: Status, Control, Fan Level.
 **Control**: for sending commands.
 
 **Fan Level**: for adjusting suction power. (MiHome app related: Quiet=38, Balanced=60, Turbo=77, Max=90)
+
+**Battery**: since ```0.0.4``` as new device
 
 Plugin calls **python-mirobo** (in subprocess) via own wrapper behind for converting results from lib to JSON and then update status of device.
 Domoticz has some limitation in python plugin system, so this lib doesn't work well directly in plugin (plugin halted after first heartbeat).
@@ -52,7 +54,7 @@ Now go to **Setup** -> **Hardware** in your Domoticz interface and add type with
 | Python Path | Path to Python 3, default is python3 |
 | Debug | When set to true the plugin shows additional information in the Domoticz log |
 
-After clicking on the Add button the two new devices are available in **Setup** -> **Devices**.
+After clicking on the Add button the new devices are available in **Setup** -> **Devices**.
 
 If you want to change ```Fan Level Type``` just disable hardware, update type and enable again. Old device can be deleted manually in Devices menu.
 
@@ -77,6 +79,8 @@ sudo service domoticz.sh restart
 
 ![fan_level](https://user-images.githubusercontent.com/93999/29668575-6906ea22-88e9-11e7-8508-8f0ff48e2f78.png)
 ![fan_level2](https://user-images.githubusercontent.com/93999/29713051-86cd023c-89a5-11e7-83cc-5953b8cbbfa5.png)
+
+![bat](https://user-images.githubusercontent.com/93999/29769383-c8202814-8bf2-11e7-86b2-3629bfc63dc0.png)
 
 ### How to get device Token
 

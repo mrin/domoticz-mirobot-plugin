@@ -45,6 +45,7 @@ class BasePlugin:
         "LevelOffHidden": "true",
         "SelectorStyle": "0"
     }
+    batteryOptions = {"Custom": "1;%"}
 
     iconName = 'XiaomiRobotVacuum'
 
@@ -52,6 +53,7 @@ class BasePlugin:
     controlUnit = 2
     fanDimmerUnit = 3
     fanSelectorUnit = 4
+    batteryUnit = 5
 
     # statuses by protocol
     # https://github.com/marcelrv/XiaomiRobotVacuumProtocol/blob/master/StatusMessage.md
@@ -93,10 +95,13 @@ class BasePlugin:
         if self.fanDimmerUnit not in Devices and Parameters['Mode5'] == 'dimmer':
             Domoticz.Device(Name='Fan Level', Unit=self.fanDimmerUnit, Type=244, Subtype=73, Switchtype=7,
                             Image=iconID).Create()
-
         elif self.fanSelectorUnit not in Devices and Parameters['Mode5'] == 'selector':
             Domoticz.Device(Name='Fan Level', Unit=self.fanSelectorUnit, TypeName='Selector Switch',
                                 Image=iconID, Options=self.fanOptions).Create()
+
+        if self.batteryUnit not in Devices:
+            Domoticz.Device(Name='Battery', Unit=self.batteryUnit, TypeName='Custom', Image=iconID,
+                            Options=self.batteryOptions).Create()
 
         Domoticz.Heartbeat(int(Parameters['Mode2']))
 
@@ -179,8 +184,10 @@ class BasePlugin:
 
         UpdateDevice(self.statusUnit,
                      (1 if result['state_code'] in [5, 6, 11] else 0), # ON is Cleaning, Back to home, Spot cleaning
-                     self.states.get(result['state_code'], 'Undefined'),
-                     result['battery'])
+                     self.states.get(result['state_code'], 'Undefined')
+                     )
+
+        UpdateDevice(self.batteryUnit, result['battery'], str(result['battery']), result['battery'])
 
         if Parameters['Mode5'] == 'dimmer':
             UpdateDevice(self.fanDimmerUnit, 2, str(result['fan_level'])) # nValue=2 for show percentage, instead ON/OFF state
@@ -229,7 +236,6 @@ def UpdateDevice(Unit, nValue, sValue, BatteryLevel=255, AlwaysUpdate=False):
         or Devices[Unit].BatteryLevel != BatteryLevel\
         or AlwaysUpdate == True:
 
-        if BatteryLevel == 255: BatteryLevel = Devices[Unit].BatteryLevel
         Devices[Unit].Update(nValue, str(sValue), BatteryLevel=BatteryLevel)
 
         Domoticz.Debug("Update %s: nValue %s - sValue %s - BatteryLevel %s" % (

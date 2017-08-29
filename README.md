@@ -29,7 +29,8 @@ git clone https://github.com/mrin/domoticz-mirobot-plugin.git xiaomi-mirobot
 ```
 
 Please make sure you have libffi and openssl headers installed, you can do this on Debian-based systems (like Rasperry Pi) with ```apt-get install libffi-dev libssl-dev```.
-It's required for python-mirobo lib.
+
+Also do note that the setuptools version is too old for installing some requirements, so before trying to install this package you should update the setuptools with ```pip3 install -U setuptools```.
 
 Then go to plugin folder and install [python-mirobo](https://github.com/rytilahti/python-mirobo) locally (due issues with python paths) with all dependencies:
 ```

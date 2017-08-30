@@ -22,17 +22,23 @@ Domoticz has some limitation in python plugin system, so this lib doesn't work w
 
 ## Installation
 
-Go to plugins folder and clone plugin:
+Before installation plugin check the `python` and `python-dev` is installed for Domoticz plugin system:
+
+```sudo apt-get install python3 python3-dev```
+
+Also do note that the setuptools version is too old for installing some requirements, so before trying to install this package you should update the setuptools with:
+
+```pip3 install -U setuptools```.
+
+Please make sure you have libffi and openssl headers installed, you can do this on Debian-based systems (like Rasperry Pi) with 
+```apt-get install libffi-dev libssl-dev```.
+
+Then go to plugins folder and clone plugin:
 ```
 cd domoticz/plugins
 git clone https://github.com/mrin/domoticz-mirobot-plugin.git xiaomi-mirobot
 ```
-
-Please make sure you have libffi and openssl headers installed, you can do this on Debian-based systems (like Rasperry Pi) with ```apt-get install libffi-dev libssl-dev```.
-
-Also do note that the setuptools version is too old for installing some requirements, so before trying to install this package you should update the setuptools with ```pip3 install -U setuptools```.
-
-Then go to plugin folder and install [python-mirobo](https://github.com/rytilahti/python-mirobo) locally (due issues with python paths) with all dependencies:
+Then install [python-mirobo](https://github.com/rytilahti/python-mirobo) locally (due issues with python paths) with all dependencies:
 ```
 cd xiaomi-mirobot
 pip3 install python-mirobo -t .vendors

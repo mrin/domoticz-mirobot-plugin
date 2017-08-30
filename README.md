@@ -22,7 +22,7 @@ Domoticz has some limitation in python plugin system, so this lib doesn't work w
 
 ## Installation
 
-Before installation plugin check the `python` and `python-dev` is installed for Domoticz plugin system:
+Before installation plugin check the `python3` and `python3-dev` is installed for Domoticz plugin system:
 
 ```sudo apt-get install python3 python3-dev```
 

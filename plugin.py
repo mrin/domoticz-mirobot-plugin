@@ -3,7 +3,7 @@
 #       Author: mrin, 2017
 #       
 """
-<plugin key="xiaomi-mi-robot-vacuum" name="Xiaomi Mi Robot Vacuum" author="mrin" version="0.0.4" wikilink="https://github.com/mrin/domoticz-mirobot-plugin" externallink="">
+<plugin key="xiaomi-mi-robot-vacuum" name="Xiaomi Mi Robot Vacuum" author="mrin" version="0.0.5" wikilink="https://github.com/mrin/domoticz-mirobot-plugin" externallink="">
     <params>
         <param field="Address" label="IP address" width="200px" required="true" default="192.168.1.12"/>
         <param field="Mode1" label="Token" width="200px" required="true" default="476e6b70343055483230644c53707a12"/>
@@ -29,6 +29,8 @@ import Domoticz
 import subprocess
 import os
 import json
+import datetime
+import time
 
 
 class BasePlugin:
@@ -46,7 +48,7 @@ class BasePlugin:
     }
     batteryOptions = {"Custom": "1;%"}
 
-    iconName = 'XiaomiRobotVacuum'
+    iconName = 'xiaomi-mi-robot-vacuum-icon'
 
     statusUnit = 1
     controlUnit = 2
@@ -101,6 +103,13 @@ class BasePlugin:
         if self.batteryUnit not in Devices:
             Domoticz.Device(Name='Battery', Unit=self.batteryUnit, TypeName='Custom', Image=iconID,
                             Options=self.batteryOptions).Create()
+
+        # todo remove it in future releases
+        UpdateIcon(self.statusUnit, iconID)
+        UpdateIcon(self.controlUnit, iconID)
+        UpdateIcon(self.fanDimmerUnit, iconID)
+        UpdateIcon(self.batteryUnit, iconID)
+        # ./
 
         Domoticz.Heartbeat(int(Parameters['Mode2']))
 
@@ -186,7 +195,11 @@ class BasePlugin:
                      self.states.get(result['state_code'], 'Undefined')
                      )
 
-        UpdateDevice(self.batteryUnit, result['battery'], str(result['battery']), result['battery'])
+        if self.batteryUnit in Devices:
+            # crazy converting due C python embedding
+            bLastSeen = datetime.datetime.fromtimestamp(time.mktime(time.strptime(Devices[self.batteryUnit].LastUpdate, '%Y-%m-%d %H:%M:%S'))).timestamp()
+            bForceUpdate = (bLastSeen < (time.time() - 15*60))
+            UpdateDevice(self.batteryUnit, result['battery'], str(result['battery']), result['battery'], bForceUpdate)
 
         if Parameters['Mode5'] == 'dimmer':
             UpdateDevice(self.fanDimmerUnit, 2, str(result['fan_level'])) # nValue=2 for show percentage, instead ON/OFF state
@@ -243,6 +256,12 @@ def UpdateDevice(Unit, nValue, sValue, BatteryLevel=255, AlwaysUpdate=False):
             sValue,
             BatteryLevel
         ))
+
+
+def UpdateIcon(Unit, iconID):
+    if Unit not in Devices: return
+    d = Devices[Unit]
+    if d.Image != iconID: d.Update(d.nValue, d.sValue, Image=iconID)
 
 
 global _plugin

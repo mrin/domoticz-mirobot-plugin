@@ -1,5 +1,5 @@
-.vendors/
 .idea/
 __pycache__
 .pyc
-python-mirobo.seq
+.env
+log

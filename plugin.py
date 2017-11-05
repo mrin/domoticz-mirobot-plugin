@@ -3,10 +3,11 @@
 #       Author: mrin, 2017
 #       
 """
-<plugin key="xiaomi-mi-robot-vacuum" name="Xiaomi Mi Robot Vacuum" author="mrin" version="0.0.5" wikilink="https://github.com/mrin/domoticz-mirobot-plugin" externallink="">
+<plugin key="xiaomi-mi-robot-vacuum" name="Xiaomi Mi Robot Vacuum" author="mrin" version="0.1.0" wikilink="https://github.com/mrin/domoticz-mirobot-plugin" externallink="">
     <params>
-        <param field="Address" label="IP address" width="200px" required="true" default="192.168.1.12"/>
+        <param field="Address" label="Robot IP" width="200px" required="true" default="192.168.1.12"/>
         <param field="Mode1" label="Token" width="200px" required="true" default="476e6b70343055483230644c53707a12"/>
+        <param field="Mode6" label="MIIOServer host:port" width="200px" required="true" default="127.0.0.1:22222"/>
         <param field="Mode2" label="Update interval (sec)" width="30px" required="true" default="15"/>
         <param field="Mode5" label="Fan Level Type" width="200px">
             <options>
@@ -25,12 +26,21 @@
 </plugin>
 """
 
+
+import os
+import sys
+
+module_paths = [x[0] for x in os.walk( os.path.join(os.path.dirname(__file__), '.', '.env/lib/') ) if x[0].endswith('site-packages') ]
+for mp in module_paths:
+    sys.path.append(mp)
+
 import Domoticz
 import subprocess
-import os
-import json
+import signal
 import datetime
 import time
+
+import msgpack
 
 
 class BasePlugin:
@@ -46,7 +56,14 @@ class BasePlugin:
         "LevelOffHidden": "true",
         "SelectorStyle": "0"
     }
-    batteryOptions = {"Custom": "1;%"}
+    careOptions = {
+        "LevelActions": "||||",
+        "LevelNames": "Off|Main Brush|Side Brush|Filter|Sensor",
+        "LevelOffHidden": "true",
+        "SelectorStyle": "0"
+    }
+
+    customSensorOptions = {"Custom": "1;%"}
 
     iconName = 'xiaomi-mi-robot-vacuum-icon'
 
@@ -55,6 +72,11 @@ class BasePlugin:
     fanDimmerUnit = 3
     fanSelectorUnit = 4
     batteryUnit = 5
+    cMainBrushUnit = 6
+    cSideBrushUnit = 7
+    cSensorsUnit = 8
+    cFilterUnit = 9
+    cResetControlUnit = 10
 
     # statuses by protocol
     # https://github.com/marcelrv/XiaomiRobotVacuumProtocol/blob/master/StatusMessage.md
@@ -78,10 +100,35 @@ class BasePlugin:
         100: 'Full'
     }
 
+    subProc = None
+    subHost = None
+    subPort = None
+
+    tcpConn = None
+
+    heartBeatCnt = 0
+
     def onStart(self):
         if Parameters['Mode4'] == 'Debug':
             Domoticz.Debugging(1)
             DumpConfigToLog()
+
+        self.heartBeatCnt = 0
+
+        self.subHost, self.subPort = Parameters['Mode6'].split(':')
+
+        self.subProc = subprocess.Popen([
+            Parameters['Mode3'],
+            os.path.join(os.path.dirname(__file__), '.') + '/server.py',
+            Parameters['Address'],
+            Parameters['Mode1'],
+            '--host', self.subHost,
+            '--port', self.subPort
+        ], shell=False, preexec_fn=os.setsid)
+
+        Domoticz.Debug('Starting MIIOServer pid:%s %s:%s' % (self.subProc.pid, self.subHost, self.subPort))
+
+        self.tcpConn = Domoticz.Connection(Name='MIIOServer', Transport='TCP/IP', Address=self.subHost, Port=self.subPort)
 
         if self.iconName not in Images: Domoticz.Image('icons.zip').Create()
         iconID = Images[self.iconName].ID
@@ -102,26 +149,76 @@ class BasePlugin:
 
         if self.batteryUnit not in Devices:
             Domoticz.Device(Name='Battery', Unit=self.batteryUnit, TypeName='Custom', Image=iconID,
-                            Options=self.batteryOptions).Create()
+                            Options=self.customSensorOptions).Create()
 
-        # todo remove it in future releases
-        UpdateIcon(self.statusUnit, iconID)
-        UpdateIcon(self.controlUnit, iconID)
-        UpdateIcon(self.fanDimmerUnit, iconID)
-        UpdateIcon(self.batteryUnit, iconID)
-        # ./
+        if self.cMainBrushUnit not in Devices:
+            Domoticz.Device(Name='Care Main Brush', Unit=self.cMainBrushUnit, TypeName='Custom', Image=iconID,
+                            Options=self.customSensorOptions).Create()
+
+        if self.cSideBrushUnit not in Devices:
+            Domoticz.Device(Name='Care Side Brush', Unit=self.cSideBrushUnit, TypeName='Custom', Image=iconID,
+                            Options=self.customSensorOptions).Create()
+
+        if self.cSensorsUnit not in Devices:
+            Domoticz.Device(Name='Care Sensors ', Unit=self.cSensorsUnit, TypeName='Custom', Image=iconID,
+                            Options=self.customSensorOptions).Create()
+
+        if self.cFilterUnit not in Devices:
+            Domoticz.Device(Name='Care Filter', Unit=self.cFilterUnit, TypeName='Custom', Image=iconID,
+                            Options=self.customSensorOptions).Create()
+
+        if self.cResetControlUnit not in Devices:
+            Domoticz.Device(Name='Care Reset Control', Unit=self.cResetControlUnit, TypeName='Selector Switch', Image=iconID,
+                            Options=self.careOptions).Create()
+
 
         Domoticz.Heartbeat(int(Parameters['Mode2']))
 
 
     def onStop(self):
-        Domoticz.Debug("onStop called")
+        Domoticz.Debug("Trying stop MIIOServer pid:%s" % self.subProc.pid)
+
+        os.killpg(os.getpgid(self.subProc.pid), signal.SIGTERM)
 
     def onConnect(self, Connection, Status, Description):
-        Domoticz.Debug("onConnect called")
+        Domoticz.Debug("MIIOServer connection status is [%s] [%s]" % (Status, Description))
 
-    def onMessage(self, Connection, Data, Status, Extra):
-        Domoticz.Debug("onMessage called")
+    def onMessage(self, Connection, Data):
+        result = msgpack.unpackb(Data, encoding='utf-8')
+
+        Domoticz.Debug("Got: %s" % result)
+
+        if 'error' in result: return
+
+        if result['cmd'] == 'status':
+
+            UpdateDevice(self.statusUnit,
+                         (1 if result['state_code'] in [5, 6, 11] else 0), # ON is Cleaning, Back to home, Spot cleaning
+                         self.states.get(result['state_code'], 'Undefined')
+                         )
+
+            if self.batteryUnit in Devices:
+                UpdateDevice(self.batteryUnit, result['battery'], str(result['battery']), result['battery'],
+                             isNeedForceUpdate(self.batteryUnit))
+
+            if Parameters['Mode5'] == 'dimmer':
+                UpdateDevice(self.fanDimmerUnit, 2, str(result['fan_level'])) # nValue=2 for show percentage, instead ON/OFF state
+            else:
+                level = {38: 10, 60: 20, 77: 30, 90: 40}.get(result['fan_level'], None)
+                if level: UpdateDevice(self.fanSelectorUnit, 1, str(level))
+
+        elif result['cmd'] == 'consumable_status':
+
+            mainBrush = cPercent(result['main_brush'], 300)
+            sideBrush = cPercent(result['side_brush'], 200)
+            filter = cPercent(result['filter'], 150)
+            sensors = cPercent(result['sensor'], 30)
+
+            UpdateDevice(self.cMainBrushUnit, mainBrush, str(mainBrush), AlwaysUpdate=True)
+            UpdateDevice(self.cSideBrushUnit, sideBrush, str(sideBrush), AlwaysUpdate=True)
+            UpdateDevice(self.cFilterUnit, filter, str(filter), AlwaysUpdate=True)
+            UpdateDevice(self.cSensorsUnit, sensors, str(sensors), AlwaysUpdate=True)
+
 
     def onCommand(self, Unit, Command, Level, Hue):
         Domoticz.Debug("onCommand called for Unit " + str(Unit) + ": Command '" + str(Command) + "', Level: " + str(Level))
@@ -134,78 +231,92 @@ class BasePlugin:
         
         if self.statusUnit == Unit:
             if 'On' == Command and self.isOFF:
-                if callWrappedCommand('start'): UpdateDevice(Unit, 1, self.states[5]) # Cleaning
+                if self.apiRequest('start'): UpdateDevice(Unit, 1, self.states[5]) # Cleaning
             
             elif 'Off' == Command and self.isON:
-                if sDevice.sValue == self.states[11] and callWrappedCommand('pause'): # Stop if Spot cleaning
+                if sDevice.sValue == self.states[11] and self.apiRequest('pause'): # Stop if Spot cleaning
                     UpdateDevice(Unit, 0, self.states[3]) # Waiting
-                elif callWrappedCommand('home'):
+                elif self.apiRequest('home'):
                     UpdateDevice(Unit, 1, self.states[6]) # Back to home
 
         elif self.controlUnit == Unit:
             
             if Level == 10: # Clean
-                if callWrappedCommand('start') and self.isOFF:
+                if self.apiRequest('start') and self.isOFF:
                     UpdateDevice(self.statusUnit, 1, self.states[5])  # Cleaning
                     
             elif Level == 20: # Home
-                if callWrappedCommand('home') and sDevice.sValue in [
+                if self.apiRequest('home') and sDevice.sValue in [
                     self.states[5], self.states[3], self.states[10]]: # Cleaning, Waiting, Paused
                     UpdateDevice(self.statusUnit, 1, self.states[6])  # Back to home
             
             elif Level == 30: # Spot
-                if callWrappedCommand('spot') and self.isOFF and sDevice.sValue != self.states[8]: # Spot cleaning will not start if Charging
+                if self.apiRequest('spot') and self.isOFF and sDevice.sValue != self.states[8]: # Spot cleaning will not start if Charging
                     UpdateDevice(self.statusUnit, 1, self.states[11])  # Spot cleaning
             
             elif Level == 40: # Pause
-                if callWrappedCommand('pause') and self.isON:
+                if self.apiRequest('pause') and self.isON:
                     if sDevice.sValue == self.states[11]: # For Spot cleaning - Pause treats as Stop
                         UpdateDevice(self.statusUnit, 0, self.states[3])  # Waiting
                     else:
                         UpdateDevice(self.statusUnit, 0, self.states[10])  # Paused
             
             elif Level == 50: # Stop
-                if callWrappedCommand('stop') and self.isON and sDevice.sValue not in [self.states[11], self.states[6]]: # Stop doesn't work for Spot cleaning, Back to home
+                if self.apiRequest('stop') and self.isON and sDevice.sValue not in [self.states[11], self.states[6]]: # Stop doesn't work for Spot cleaning, Back to home
                     UpdateDevice(self.statusUnit, 0, self.states[3]) # Waiting
                 
             elif Level == 60: # Find 
-                callWrappedCommand('find')
+                self.apiRequest('find')
 
         elif self.fanDimmerUnit == Unit and Parameters['Mode5'] == 'dimmer':
             Level = 1 if Level == 0 else 100 if Level > 100 else Level
-            if callWrappedCommand('fan_level', Level): UpdateDevice(self.fanDimmerUnit, 2, str(Level))
+            if self.apiRequest('set_fan_level', Level): UpdateDevice(self.fanDimmerUnit, 2, str(Level))
 
         elif self.fanSelectorUnit == Unit and Parameters['Mode5'] == 'selector':
             num_level = {10: 38, 20: 60, 30: 77, 40: 90}.get(Level, None)
-            if num_level and callWrappedCommand('fan_level', num_level): UpdateDevice(self.fanSelectorUnit, 1, str(Level))
+            if num_level and self.apiRequest('set_fan_level', num_level): UpdateDevice(self.fanSelectorUnit, 1, str(Level))
+
+        elif self.cResetControlUnit == Unit:
+
+            if Level == 10: # Reset Main Brush
+                if self.apiRequest('care_reset_main_brush'):
+                    UpdateDevice(self.cMainBrushUnit, 100, '100')
+
+            elif Level == 20: # Reset Side Brush
+                if self.apiRequest('care_reset_side_brush'):
+                    UpdateDevice(self.cSideBrushUnit, 100, '100')
+
+            elif Level == 30: # Reset Filter
+                if self.apiRequest('care_reset_filter'):
+                    UpdateDevice(self.cFilterUnit, 100, '100')
+
+            elif Level == 40: # Reset Sensors
+                if self.apiRequest('care_reset_sensor'):
+                    UpdateDevice(self.cSensorsUnit, 100, '100')
+
+            self.apiRequest('consumable_status')
 
 
     def onNotification(self, Name, Subject, Text, Status, Priority, Sound, ImageFile):
         Domoticz.Debug("Notification: " + Name + "," + Subject + "," + Text + "," + Status + "," + str(Priority) + "," + Sound + "," + ImageFile)
 
     def onDisconnect(self, Connection):
-        Domoticz.Debug("onDisconnect called")
+        Domoticz.Debug("MIIOServer disconnected")
 
     def onHeartbeat(self):
-        result = callWrappedCommand('status')
-        if not result or 'state_code' not in result or 'error_code' in result: return
+        if not self.tcpConn.Connecting() and not self.tcpConn.Connected():
+            self.tcpConn.Connect()
+            Domoticz.Debug("Trying connect to MIIOServer %s:%s" % (self.subHost, self.subPort))
 
-        UpdateDevice(self.statusUnit,
-                     (1 if result['state_code'] in [5, 6, 11] else 0), # ON is Cleaning, Back to home, Spot cleaning
-                     self.states.get(result['state_code'], 'Undefined')
-                     )
+        elif self.tcpConn.Connecting():
+            Domoticz.Debug("Still connecting to MIIOServer %s:%s" % (self.subHost, self.subPort))
 
-        if self.batteryUnit in Devices:
-            # crazy converting due C python embedding
-            bLastSeen = datetime.datetime.fromtimestamp(time.mktime(time.strptime(Devices[self.batteryUnit].LastUpdate, '%Y-%m-%d %H:%M:%S'))).timestamp()
-            bForceUpdate = (bLastSeen < (time.time() - 15*60))
-            UpdateDevice(self.batteryUnit, result['battery'], str(result['battery']), result['battery'], bForceUpdate)
+        elif self.tcpConn.Connected():
+            if self.heartBeatCnt % 30 == 0 or self.heartBeatCnt == 0:
+                self.apiRequest('consumable_status')
+            self.apiRequest('status')
+            self.heartBeatCnt += 1
 
-        if Parameters['Mode5'] == 'dimmer':
-            UpdateDevice(self.fanDimmerUnit, 2, str(result['fan_level'])) # nValue=2 for show percentage, instead ON/OFF state
-        else:
-            level = {38: 10, 60: 20, 77: 30, 90: 40}.get(result['fan_level'], None)
-            if level: UpdateDevice(self.fanSelectorUnit, 1, str(level))
 
     @property              
     def isON(self):
@@ -215,30 +326,13 @@ class BasePlugin:
     def isOFF(self):
         return Devices[self.statusUnit].nValue == 0
 
+    def apiRequest(self, cmd_name, cmd_value=None):
+        if not self.tcpConn.Connected(): return False
+        cmd = [cmd_name]
+        if cmd_value: cmd.append(cmd_value)
+        self.tcpConn.Send(msgpack.packb(cmd, use_bin_type=True))
+        return True
 
-def callWrappedCommand(cmd_name=None, cmd_value=None):
-    call_params = [Parameters['Mode3'], os.path.dirname(__file__) + '/mirobo-wrapper.py', Parameters['Address'], Parameters['Mode1']]
-    if cmd_name: call_params.append(cmd_name)
-    if cmd_value: call_params.append(str(cmd_value))
-
-    try:
-        call_resp = subprocess.check_output(call_params, universal_newlines=True)
-        Domoticz.Debug('Poll: %s' % call_resp)
-        
-        try:
-            result = json.loads(call_resp)
-            if 'exception' in result:
-                Domoticz.Error('Response mirobo-wrapper exception: %s' % result['exception'])
-                return None
-            return result
-            
-        except Exception:
-            Domoticz.Error('callWrappedCommand() json parse exception: %s' % call_resp)
-            return None
-            
-    except Exception as e:
-        Domoticz.Error('Call mirobo-wrapper exception: %s' % str(e))
-        return None
 
 
 def UpdateDevice(Unit, nValue, sValue, BatteryLevel=255, AlwaysUpdate=False):
@@ -263,6 +357,18 @@ def UpdateIcon(Unit, iconID):
     d = Devices[Unit]
     if d.Image != iconID: d.Update(d.nValue, d.sValue, Image=iconID)
 
+def isNeedForceUpdate(Unit):
+    if Unit not in Devices: return False
+    # crazy converting due C python embedding
+    LastSeen = datetime.datetime.fromtimestamp(
+        time.mktime(time.strptime(Devices[Unit].LastUpdate, '%Y-%m-%d %H:%M:%S'))
+    ).timestamp()
+    return (LastSeen < (time.time() - 15 * 60))
+
+
+def cPercent(used, max):
+    return 100 - round(used / 3600 * 100 / max)
+
 
 global _plugin
 _plugin = BasePlugin()
@@ -279,9 +385,9 @@ def onConnect(Connection, Status, Description):
     global _plugin
     _plugin.onConnect(Connection, Status, Description)
 
-def onMessage(Connection, Data, Status, Extra):
+def onMessage(Connection, Data):
     global _plugin
-    _plugin.onMessage(Connection, Data, Status, Extra)
+    _plugin.onMessage(Connection, Data)
 
 def onCommand(Unit, Command, Level, Hue):
     global _plugin

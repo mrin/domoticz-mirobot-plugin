@@ -24,9 +24,9 @@ Since ```0.1.0``` plugin uses wrapper-server for python-miio lib. It helps to us
 
 ## Installation
 
-Before installation plugin check the `python3` and `python3-dev` is installed for Domoticz plugin system:
+Before installation plugin check the `python3`, `python3-dev`, `pip3` is installed for Domoticz plugin system:
 
-```sudo apt-get install python3 python3-dev```
+```sudo apt-get install python3 python3-dev python3-pip```
 
 Also do note that the setuptools version is too old for installing some requirements, so before trying to install this package you should update the setuptools with:
 

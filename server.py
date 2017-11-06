@@ -37,7 +37,7 @@ sockets = {}
 
 s = logging.StreamHandler(sys.stdout)
 s.setLevel(logging.DEBUG)
-s.setFormatter(logging.Formatter("%(message)s"))
+s.setFormatter(logging.Formatter("server: %(message)s"))
 
 logger = logging.getLogger('server')
 logger.setLevel(logging.DEBUG)
@@ -64,7 +64,7 @@ def socket_incoming_connection(socket, address):
 
         for msg in unpacker:
             receive.put(InMsg(msg, address))
-            # logger.debug('got socket msg: %s', msg)
+            logger.debug('got socket msg: %s', msg)
 
     sockets.pop(address)
 
@@ -73,7 +73,7 @@ def socket_msg_sender(sockets, q):
         msg = q.get()
         if isinstance(msg, OutMsg) and msg.to in sockets:
             sockets[msg.to].sendall(msgpack.packb(msg, use_bin_type=True))
-            # logger.debug('send reply %s', msg.to)
+            logger.debug('send reply %s', msg.to)
 
 
 
@@ -88,12 +88,12 @@ def vacuum_commands_handler(ip, token, q):
             if hasattr(VacuumCommand, cmd):
                 result = getattr(VacuumCommand, cmd)(vac, *msg)
             else:
-                result = {'error': 'command [%s] not found' % cmd}
+                result = {'exception': 'command [%s] not found' % cmd}
         except (DeviceException, Exception) as e:
-            result = {'error': 'python-miio: %s' % e}
+            result = {'exception': 'python-miio: %s' % e}
         finally:
             result.update({'cmd': cmd})
-            # logger.debug('vac result %s', result)
+            logger.debug('vac result %s', result)
             send.put(OutMsg(result, msg.to))
 
 
@@ -105,15 +105,11 @@ class VacuumCommand(object):
         res = vac.status()
         if not res:
             return {
-                'error': 'no response'
-            }
-
-        if res.error_code:
-            return {
-                'error': res.error
+                'exception': 'no response'
             }
 
         return {
+            'error': res.error if res.error_code else None,
             'state_code': res.state_code,
             'battery': res.battery,
             'fan_level': res.fanspeed,

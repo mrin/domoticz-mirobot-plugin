@@ -3,7 +3,7 @@
 #       Author: mrin, 2017
 #       
 """
-<plugin key="xiaomi-mi-robot-vacuum" name="Xiaomi Mi Robot Vacuum" author="mrin" version="0.1.0" wikilink="https://github.com/mrin/domoticz-mirobot-plugin" externallink="">
+<plugin key="xiaomi-mi-robot-vacuum" name="Xiaomi Mi Robot Vacuum" author="mrin" version="0.1.1" wikilink="https://github.com/mrin/domoticz-mirobot-plugin" externallink="">
     <params>
         <param field="Address" label="Robot IP" width="200px" required="true" default="192.168.1.12"/>
         <param field="Mode1" label="Token" width="200px" required="true" default="476e6b70343055483230644c53707a12"/>
@@ -36,7 +36,6 @@ for mp in module_paths:
 
 import Domoticz
 import subprocess
-import signal
 import datetime
 import time
 
@@ -100,13 +99,14 @@ class BasePlugin:
         100: 'Full'
     }
 
-    subProc = None
-    subHost = None
-    subPort = None
 
-    tcpConn = None
-
-    heartBeatCnt = 0
+    def __init__(self):
+        self.heartBeatCnt = 0
+        self.subProc = None
+        self.subHost = None
+        self.subPort = None
+        self.tcpConn = None
+        self.devnull = open(os.devnull, 'w')
 
     def onStart(self):
         if Parameters['Mode4'] == 'Debug':
@@ -116,7 +116,6 @@ class BasePlugin:
         self.heartBeatCnt = 0
 
         self.subHost, self.subPort = Parameters['Mode6'].split(':')
-
         self.subProc = subprocess.Popen([
             Parameters['Mode3'],
             os.path.join(os.path.dirname(__file__), '.') + '/server.py',
@@ -124,11 +123,12 @@ class BasePlugin:
             Parameters['Mode1'],
             '--host', self.subHost,
             '--port', self.subPort
-        ], shell=False, preexec_fn=os.setsid)
+        ], shell=False,  stdout=self.devnull, stderr=self.devnull)
 
         Domoticz.Debug('Starting MIIOServer pid:%s %s:%s' % (self.subProc.pid, self.subHost, self.subPort))
 
-        self.tcpConn = Domoticz.Connection(Name='MIIOServer', Transport='TCP/IP', Address=self.subHost, Port=self.subPort)
+        self.tcpConn = Domoticz.Connection(Name='MIIOServer', Transport='TCP/IP', Protocol='None',
+                                           Address=self.subHost, Port=self.subPort)
 
         if self.iconName not in Images: Domoticz.Image('icons.zip').Create()
         iconID = Images[self.iconName].ID
@@ -177,8 +177,7 @@ class BasePlugin:
 
     def onStop(self):
         Domoticz.Debug("Trying stop MIIOServer pid:%s" % self.subProc.pid)
-
-        os.killpg(os.getpgid(self.subProc.pid), signal.SIGTERM)
+        self.subProc.kill()
 
     def onConnect(self, Connection, Status, Description):
         Domoticz.Debug("MIIOServer connection status is [%s] [%s]" % (Status, Description))
@@ -188,7 +187,7 @@ class BasePlugin:
 
         Domoticz.Debug("Got: %s" % result)
 
-        if 'error' in result: return
+        if 'exception' in result: return
 
         if result['cmd'] == 'status':
 

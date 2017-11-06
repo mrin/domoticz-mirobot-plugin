@@ -7,6 +7,7 @@ from time import sleep
 module_paths = [x[0] for x in os.walk( os.path.join(os.path.dirname(__file__), '.', '.env/lib/') ) if x[0].endswith('site-packages') ]
 for mp in module_paths:
     sys.path.append(mp)
+    print('test: python modules path: %s' % mp)
 
 from msgpack import Unpacker
 import socket
@@ -19,22 +20,23 @@ parser.add_argument('--host', type=str, default='127.0.0.1')
 parser.add_argument('--port', type=int, default=22222)
 args = parser.parse_args()
 
-print('starting server.py')
+print('test: starting server.py process')
 
-FNULL = open(os.devnull, 'w')
 sProc = subprocess.Popen(['python3',
                             os.path.join(os.path.dirname(__file__), '.') + '/server.py',
                             args.ip, args.token, '--host', args.host, '--port', str(args.port)],
-                            shell=False, stdout=FNULL, stderr=subprocess.PIPE)
-sleep(1)
+                            shell=False)
 
-print('trying connect to %s:%s' % (args.host, args.port))
+print('test: wait server starting... 5 seconds ')
+sleep(5)
+
+print('test: trying connect to %s:%s' % (args.host, args.port))
 
 client = socket.create_connection((args.host, args.port))
 client.sendall(msgpack.packb(['status'], use_bin_type=True))
 
-print("sent request to server [status]")
-print("reading response...")
+print("test: sent request to server [status]")
+print("test: reading response...")
 
 def _reader(client):
     unpacker = Unpacker(encoding='utf-8')
@@ -43,16 +45,18 @@ def _reader(client):
         data = client.recv(4096)
 
         if not data:
-            print('connection closed')
+            print('test: connection closed')
             break
 
         unpacker.feed(data)
 
         for msg in unpacker:
-            print('got server reply', msg)
+            print('test: got server reply', msg)
             return
 
 _reader(client)
+
+print('test: kill servery.py pid: %s' % sProc.pid)
 
 sProc.kill()
 

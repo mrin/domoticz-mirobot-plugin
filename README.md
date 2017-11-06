@@ -49,7 +49,8 @@ Now create virtualenv and install required libs:
 ```
 cd xiaomi-mirobot
 virtualenv -p python3 .env
-
+source .env/bin/activate
+#and then:
 pip3 install -r pip_req.txt 
 # or pip3 install gevent msgpack-python python-miio==0.3.1
 

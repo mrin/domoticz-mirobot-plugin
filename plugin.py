@@ -3,10 +3,8 @@
 #       Author: mrin, 2017
 #       
 """
-<plugin key="xiaomi-mi-robot-vacuum" name="Xiaomi Mi Robot Vacuum" author="mrin" version="0.1.1" wikilink="https://github.com/mrin/domoticz-mirobot-plugin" externallink="">
+<plugin key="xiaomi-mi-robot-vacuum" name="Xiaomi Mi Robot Vacuum" author="mrin" version="0.1.2" wikilink="https://github.com/mrin/domoticz-mirobot-plugin" externallink="">
     <params>
-        <param field="Address" label="Robot IP" width="200px" required="true" default="192.168.1.12"/>
-        <param field="Mode1" label="Token" width="200px" required="true" default="476e6b70343055483230644c53707a12"/>
         <param field="Mode6" label="MIIOServer host:port" width="200px" required="true" default="127.0.0.1:22222"/>
         <param field="Mode2" label="Update interval (sec)" width="30px" required="true" default="15"/>
         <param field="Mode5" label="Fan Level Type" width="200px">
@@ -15,7 +13,6 @@
                 <option label="Slider" value="dimmer"/>
             </options>
         </param>
-        <param field="Mode3" label="Python Path" width="200px" required="true" default="python3"/>
         <param field="Mode4" label="Debug" width="75px">
             <options>
                 <option label="True" value="Debug" default="true"/>
@@ -35,10 +32,8 @@ for mp in module_paths:
     sys.path.append(mp)
 
 import Domoticz
-import subprocess
 import datetime
 import time
-
 import msgpack
 
 
@@ -102,11 +97,9 @@ class BasePlugin:
 
     def __init__(self):
         self.heartBeatCnt = 0
-        self.subProc = None
         self.subHost = None
         self.subPort = None
         self.tcpConn = None
-        self.devnull = open(os.devnull, 'w')
 
     def onStart(self):
         if Parameters['Mode4'] == 'Debug':
@@ -114,18 +107,7 @@ class BasePlugin:
             DumpConfigToLog()
 
         self.heartBeatCnt = 0
-
         self.subHost, self.subPort = Parameters['Mode6'].split(':')
-        self.subProc = subprocess.Popen([
-            Parameters['Mode3'],
-            os.path.join(os.path.dirname(__file__), '.') + '/server.py',
-            Parameters['Address'],
-            Parameters['Mode1'],
-            '--host', self.subHost,
-            '--port', self.subPort
-        ], shell=False,  stdout=self.devnull, stderr=self.devnull)
-
-        Domoticz.Debug('Starting MIIOServer pid:%s %s:%s' % (self.subProc.pid, self.subHost, self.subPort))
 
         self.tcpConn = Domoticz.Connection(Name='MIIOServer', Transport='TCP/IP', Protocol='None',
                                            Address=self.subHost, Port=self.subPort)
@@ -171,13 +153,11 @@ class BasePlugin:
             Domoticz.Device(Name='Care Reset Control', Unit=self.cResetControlUnit, TypeName='Selector Switch', Image=iconID,
                             Options=self.careOptions).Create()
 
-
         Domoticz.Heartbeat(int(Parameters['Mode2']))
 
 
     def onStop(self):
-        Domoticz.Debug("Trying stop MIIOServer pid:%s" % self.subProc.pid)
-        self.subProc.kill()
+        pass
 
     def onConnect(self, Connection, Status, Description):
         Domoticz.Debug("MIIOServer connection status is [%s] [%s]" % (Status, Description))

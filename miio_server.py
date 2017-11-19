@@ -1,5 +1,6 @@
-import os
+#!/usr/bin/python3
 import sys
+import os
 
 module_paths = [x[0] for x in os.walk( os.path.join(os.path.dirname(__file__), '.', '.env/lib/') ) if x[0].endswith('site-packages') ]
 for mp in module_paths:
@@ -15,6 +16,8 @@ from gevent.server import StreamServer
 import argparse
 from miio import Vacuum, DeviceException
 from msgpack import Unpacker
+import time
+import signal
 from logging.handlers import RotatingFileHandler
 import logging
 
@@ -46,6 +49,15 @@ logger.addHandler(s)
 
 #### ./LOGGING
 
+### for run as service
+def signal_handler(signum=None, frame=None):
+    time.sleep(1)
+    sys.exit(0)
+for sig in [signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT]:
+    signal.signal(sig, signal_handler)
+### ./for run as service
+
+
 def socket_incoming_connection(socket, address):
 
     logger.debug('connected %s', address)
@@ -67,6 +79,7 @@ def socket_incoming_connection(socket, address):
             logger.debug('got socket msg: %s', msg)
 
     sockets.pop(address)
+
 
 def socket_msg_sender(sockets, q):
     while True:

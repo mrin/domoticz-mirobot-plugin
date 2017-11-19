@@ -20,7 +20,9 @@ Plugin provides: Status, Control, Fan Level, Battery, Care status devices
 
 **Care**: since ```0.1.0``` new 5 devices (care status + reset tool)
 
-Since ```0.1.0``` plugin uses wrapper-server for python-miio lib. It helps to use this plugin in Domoticz without blocking mode.
+>Since ```0.1.0``` plugin uses wrapper-server for python-miio lib. It helps to use this plugin in Domoticz without blocking mode.
+
+>Since ```0.1.2``` wrapper-server (MIIO Server) runs outside plugin due limits of domoticz python plugin system.
 
 ## Installation
 
@@ -28,35 +30,88 @@ Before installation plugin check the `python3`, `python3-dev`, `pip3` is install
 
 ```sudo apt-get install python3 python3-dev python3-pip```
 
+Make sure you have libffi and openssl headers installed, you can do this on Debian-based systems (like Rasperry Pi) with:
+
+```sudo apt-get install libffi-dev libssl-dev```.
+
 Also do note that the setuptools version is too old for installing some requirements, so before trying to install this package you should update the setuptools with:
 
 ```sudo pip3 install -U setuptools```.
 
 Also need to install virtualenv:
+
 ```sudo pip3 install -U virtualenv```.
 
-Please make sure you have libffi and openssl headers installed, you can do this on Debian-based systems (like Rasperry Pi) with 
-```sudo apt-get install libffi-dev libssl-dev```.
-
-Then go to plugins folder and clone plugin then activate virtualenv:
+Then go to plugins folder and clone repository:
 ```
 cd domoticz/plugins
 git clone https://github.com/mrin/domoticz-mirobot-plugin.git xiaomi-mirobot
-
-```
-
-Now create virtualenv and install required libs:
-```
 cd xiaomi-mirobot
 virtualenv -p python3 .env
 source .env/bin/activate
-#and then:
+
+# and then:
 pip3 install -r pip_req.txt 
 # or pip3 install gevent msgpack-python python-miio==0.3.1
-
 ```
 
-Restart the Domoticz service
+Since ```0.1.2``` need some prepare of **MIIO Server** to run as service:
+1. Open and edit miio_server.sh by vi/nano:
+```
+nano miio_server.sh
+
+# 1. Check and update absolute path to miio_server.py
+# 2. Update IP and TOKEN for robot
+# 3. Optional. Change MIIO server host-port bindings if need it
+
+# file miio_server.sh
+DAEMON_USER=root
+DAEMON=/home/pi/domoticz/plugins/xiaomi-mirobot/miio_server.py
+DAEMON_ARGS="192.168.1.12 476e6b70343055483230644c53707a12"
+DAEMON_ARGS="$DAEMON_ARGS --host 127.0.0.1 --port 22222"
+#
+```
+
+2. Check path to python3 ```which python3```. By default is ```/usr/bin/python3```. 
+If your path different than default, update miio_server.py first line with your path.
+```
+#!/usr/bin/python3
+```
+
+3. For run as system service:
+```
+sudo chmod +x miio_server.py
+sudo chmod +x miio_server.sh
+
+# check your path here:
+sudo ln -s /home/pi/domoticz/plugins/xiaomi-mirobot/miio_server.sh /etc/init.d/miio_server
+
+# add to startup
+sudo update-rc.d miio_server defaults
+sudo systemctl daemon-reload
+
+# if you want to remove from startup
+sudo update-rc.d -f miio_server remove
+```
+
+4. Run server and test script:
+```
+sudo service miio_server start
+sudo ./test.py
+
+# to stop miio server service
+sudo service miio_server stop
+```
+
+Also you can run MIIO Server manually and look log output:
+```
+sudo ./miio_server.py 192.168.1.12 476e6b70343055483230644c53707a12 --host 127.0.0.1 --port 22222
+
+# then you can run test
+sudo ./test.py
+```
+
+If server and test is ok, time to restart the Domoticz:
 ```
 sudo service domoticz.sh restart
 ```
@@ -66,12 +121,9 @@ Now go to **Setup** -> **Hardware** in your Domoticz interface and add type with
 | Field | Information|
 | ----- | ---------- |
 | Data Timeout | Keep Disabled |
-| IP address | Enter the IP address of your Vacuum (see the MiHome app or router dhcp, should be static) |
-| Token |  This token is only attainable before the device has been connected over the app to your local wifi (or alternatively, if you have paired your rooted mobile device with the vacuum, or if you share access to Vacuum via MiHome to rooted device) |
-| MIIOServer host:port | Local server will be started with plugin on 127.0.0.1:22222 |
+| MIIOServer host:port | by default 127.0.0.1:22222 |
 | Update interval | In seconds, this determines with which interval the plugin polls the status of Vacuum. Suggested is no lower then 5 sec due timeout in python-mirobo lib, but you can try any.  |
 | Fan Level Type | ```Standard``` - standard set of buttons (values supported by MiHome); ```Slider``` - allow to set custom values, up to 100 (in standard Max=90) (values not supported by MiHome) |
-| Python Path | Path to Python 3, default is python3 |
 | Debug | When set to true the plugin shows additional information in the Domoticz log |
 
 After clicking on the Add button the new devices are available in **Setup** -> **Devices**.

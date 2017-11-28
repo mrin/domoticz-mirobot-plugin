@@ -97,6 +97,7 @@ sudo update-rc.d -f miio_server remove
 4. Run server and test script:
 ```
 sudo service miio_server start
+sudo chmod +x test.py
 sudo ./test.py
 
 # to stop miio server service

@@ -3,7 +3,7 @@
 #       Author: mrin, 2017
 #       
 """
-<plugin key="xiaomi-mi-robot-vacuum" name="Xiaomi Mi Robot Vacuum" author="mrin" version="0.1.2" wikilink="https://github.com/mrin/domoticz-mirobot-plugin" externallink="">
+<plugin key="xiaomi-mi-robot-vacuum" name="Xiaomi Mi Robot Vacuum" author="mrin" version="0.1.3" wikilink="https://github.com/mrin/domoticz-mirobot-plugin" externallink="">
     <params>
         <param field="Mode6" label="MIIOServer host:port" width="200px" required="true" default="127.0.0.1:22222"/>
         <param field="Mode2" label="Update interval (sec)" width="30px" required="true" default="15"/>
@@ -32,8 +32,6 @@ for mp in module_paths:
     sys.path.append(mp)
 
 import Domoticz
-import datetime
-import time
 import msgpack
 
 
@@ -176,9 +174,8 @@ class BasePlugin:
                          self.states.get(result['state_code'], 'Undefined')
                          )
 
-            if self.batteryUnit in Devices:
-                UpdateDevice(self.batteryUnit, result['battery'], str(result['battery']), result['battery'],
-                             isNeedForceUpdate(self.batteryUnit))
+            UpdateDevice(self.batteryUnit, result['battery'], str(result['battery']), result['battery'],
+                         AlwaysUpdate=(self.heartBeatCnt % 100 == 0))
 
             if Parameters['Mode5'] == 'dimmer':
                 UpdateDevice(self.fanDimmerUnit, 2, str(result['fan_level'])) # nValue=2 for show percentage, instead ON/OFF state
@@ -336,15 +333,6 @@ def UpdateIcon(Unit, iconID):
     d = Devices[Unit]
     if d.Image != iconID: d.Update(d.nValue, d.sValue, Image=iconID)
 
-def isNeedForceUpdate(Unit):
-    if Unit not in Devices: return False
-    # crazy converting due C python embedding
-    LastSeen = datetime.datetime.fromtimestamp(
-        time.mktime(time.strptime(Devices[Unit].LastUpdate, '%Y-%m-%d %H:%M:%S'))
-    ).timestamp()
-    return (LastSeen < (time.time() - 15 * 60))
-
-
 def cPercent(used, max):
     return 100 - round(used / 3600 * 100 / max)
 
@@ -364,7 +352,7 @@ def onConnect(Connection, Status, Description):
     global _plugin
     _plugin.onConnect(Connection, Status, Description)
 
-def onMessage(Connection, Data):
+def onMessage(Connection, Data, Status=None, Extra=None):
     global _plugin
     _plugin.onMessage(Connection, Data)
 

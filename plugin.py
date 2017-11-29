@@ -98,6 +98,7 @@ class BasePlugin:
         self.subHost = None
         self.subPort = None
         self.tcpConn = None
+        self.unpacker = msgpack.Unpacker(encoding='utf-8')
 
     def onStart(self):
         if Parameters['Mode4'] == 'Debug':
@@ -161,40 +162,40 @@ class BasePlugin:
         Domoticz.Debug("MIIOServer connection status is [%s] [%s]" % (Status, Description))
 
     def onMessage(self, Connection, Data):
-        result = msgpack.unpackb(Data, encoding='utf-8')
+        self.unpacker.feed(Data)
+        for result in self.unpacker:
 
-        Domoticz.Debug("Got: %s" % result)
+            Domoticz.Debug("Got: %s" % result)
 
-        if 'exception' in result: return
+            if 'exception' in result: return
 
-        if result['cmd'] == 'status':
+            if result['cmd'] == 'status':
 
-            UpdateDevice(self.statusUnit,
-                         (1 if result['state_code'] in [5, 6, 11] else 0), # ON is Cleaning, Back to home, Spot cleaning
-                         self.states.get(result['state_code'], 'Undefined')
-                         )
+                UpdateDevice(self.statusUnit,
+                             (1 if result['state_code'] in [5, 6, 11] else 0), # ON is Cleaning, Back to home, Spot cleaning
+                             self.states.get(result['state_code'], 'Undefined')
+                             )
 
-            UpdateDevice(self.batteryUnit, result['battery'], str(result['battery']), result['battery'],
-                         AlwaysUpdate=(self.heartBeatCnt % 100 == 0))
+                UpdateDevice(self.batteryUnit, result['battery'], str(result['battery']), result['battery'],
+                             AlwaysUpdate=(self.heartBeatCnt % 100 == 0))
 
-            if Parameters['Mode5'] == 'dimmer':
-                UpdateDevice(self.fanDimmerUnit, 2, str(result['fan_level'])) # nValue=2 for show percentage, instead ON/OFF state
-            else:
-                level = {38: 10, 60: 20, 77: 30, 90: 40}.get(result['fan_level'], None)
-                if level: UpdateDevice(self.fanSelectorUnit, 1, str(level))
+                if Parameters['Mode5'] == 'dimmer':
+                    UpdateDevice(self.fanDimmerUnit, 2, str(result['fan_level'])) # nValue=2 for show percentage, instead ON/OFF state
+                else:
+                    level = {38: 10, 60: 20, 77: 30, 90: 40}.get(result['fan_level'], None)
+                    if level: UpdateDevice(self.fanSelectorUnit, 1, str(level))
 
-        elif result['cmd'] == 'consumable_status':
+            elif result['cmd'] == 'consumable_status':
 
-            mainBrush = cPercent(result['main_brush'], 300)
-            sideBrush = cPercent(result['side_brush'], 200)
-            filter = cPercent(result['filter'], 150)
-            sensors = cPercent(result['sensor'], 30)
+                mainBrush = cPercent(result['main_brush'], 300)
+                sideBrush = cPercent(result['side_brush'], 200)
+                filter = cPercent(result['filter'], 150)
+                sensors = cPercent(result['sensor'], 30)
 
-            UpdateDevice(self.cMainBrushUnit, mainBrush, str(mainBrush), AlwaysUpdate=True)
-            UpdateDevice(self.cSideBrushUnit, sideBrush, str(sideBrush), AlwaysUpdate=True)
-            UpdateDevice(self.cFilterUnit, filter, str(filter), AlwaysUpdate=True)
-            UpdateDevice(self.cSensorsUnit, sensors, str(sensors), AlwaysUpdate=True)
-
+                UpdateDevice(self.cMainBrushUnit, mainBrush, str(mainBrush), AlwaysUpdate=True)
+                UpdateDevice(self.cSideBrushUnit, sideBrush, str(sideBrush), AlwaysUpdate=True)
+                UpdateDevice(self.cFilterUnit, filter, str(filter), AlwaysUpdate=True)
+                UpdateDevice(self.cSensorsUnit, sensors, str(sensors), AlwaysUpdate=True)
 
     def onCommand(self, Unit, Command, Level, Hue):
         Domoticz.Debug("onCommand called for Unit " + str(Unit) + ": Command '" + str(Command) + "', Level: " + str(Level))

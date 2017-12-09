@@ -162,40 +162,44 @@ class BasePlugin:
         Domoticz.Debug("MIIOServer connection status is [%s] [%s]" % (Status, Description))
 
     def onMessage(self, Connection, Data):
-        self.unpacker.feed(Data)
-        for result in self.unpacker:
+        try:
+            self.unpacker.feed(Data)
+            for result in self.unpacker:
 
-            Domoticz.Debug("Got: %s" % result)
+                Domoticz.Debug("Got: %s" % result)
 
-            if 'exception' in result: return
+                if 'exception' in result: return
 
-            if result['cmd'] == 'status':
+                if result['cmd'] == 'status':
 
-                UpdateDevice(self.statusUnit,
-                             (1 if result['state_code'] in [5, 6, 11] else 0), # ON is Cleaning, Back to home, Spot cleaning
-                             self.states.get(result['state_code'], 'Undefined')
-                             )
+                    UpdateDevice(self.statusUnit,
+                                 (1 if result['state_code'] in [5, 6, 11] else 0), # ON is Cleaning, Back to home, Spot cleaning
+                                 self.states.get(result['state_code'], 'Undefined')
+                                 )
 
-                UpdateDevice(self.batteryUnit, result['battery'], str(result['battery']), result['battery'],
-                             AlwaysUpdate=(self.heartBeatCnt % 100 == 0))
+                    UpdateDevice(self.batteryUnit, result['battery'], str(result['battery']), result['battery'],
+                                 AlwaysUpdate=(self.heartBeatCnt % 100 == 0))
 
-                if Parameters['Mode5'] == 'dimmer':
-                    UpdateDevice(self.fanDimmerUnit, 2, str(result['fan_level'])) # nValue=2 for show percentage, instead ON/OFF state
-                else:
-                    level = {38: 10, 60: 20, 77: 30, 90: 40}.get(result['fan_level'], None)
-                    if level: UpdateDevice(self.fanSelectorUnit, 1, str(level))
+                    if Parameters['Mode5'] == 'dimmer':
+                        UpdateDevice(self.fanDimmerUnit, 2, str(result['fan_level'])) # nValue=2 for show percentage, instead ON/OFF state
+                    else:
+                        level = {38: 10, 60: 20, 77: 30, 90: 40}.get(result['fan_level'], None)
+                        if level: UpdateDevice(self.fanSelectorUnit, 1, str(level))
 
-            elif result['cmd'] == 'consumable_status':
+                elif result['cmd'] == 'consumable_status':
 
-                mainBrush = cPercent(result['main_brush'], 300)
-                sideBrush = cPercent(result['side_brush'], 200)
-                filter = cPercent(result['filter'], 150)
-                sensors = cPercent(result['sensor'], 30)
+                    mainBrush = cPercent(result['main_brush'], 300)
+                    sideBrush = cPercent(result['side_brush'], 200)
+                    filter = cPercent(result['filter'], 150)
+                    sensors = cPercent(result['sensor'], 30)
 
-                UpdateDevice(self.cMainBrushUnit, mainBrush, str(mainBrush), AlwaysUpdate=True)
-                UpdateDevice(self.cSideBrushUnit, sideBrush, str(sideBrush), AlwaysUpdate=True)
-                UpdateDevice(self.cFilterUnit, filter, str(filter), AlwaysUpdate=True)
-                UpdateDevice(self.cSensorsUnit, sensors, str(sensors), AlwaysUpdate=True)
+                    UpdateDevice(self.cMainBrushUnit, mainBrush, str(mainBrush), AlwaysUpdate=True)
+                    UpdateDevice(self.cSideBrushUnit, sideBrush, str(sideBrush), AlwaysUpdate=True)
+                    UpdateDevice(self.cFilterUnit, filter, str(filter), AlwaysUpdate=True)
+                    UpdateDevice(self.cSensorsUnit, sensors, str(sensors), AlwaysUpdate=True)
+
+        except msgpack.UnpackException as e:
+            Domoticz.Error('Unpacker exception [%s]' % str(e))
 
     def onCommand(self, Unit, Command, Level, Hue):
         Domoticz.Debug("onCommand called for Unit " + str(Unit) + ": Command '" + str(Command) + "', Level: " + str(Level))
@@ -203,13 +207,13 @@ class BasePlugin:
         if self.statusUnit not in Devices:
             Domoticz.Error('Status device is required')
             return
-            
+
         sDevice = Devices[self.statusUnit]
-        
+
         if self.statusUnit == Unit:
             if 'On' == Command and self.isOFF:
                 if self.apiRequest('start'): UpdateDevice(Unit, 1, self.states[5]) # Cleaning
-            
+
             elif 'Off' == Command and self.isON:
                 if sDevice.sValue == self.states[11] and self.apiRequest('pause'): # Stop if Spot cleaning
                     UpdateDevice(Unit, 0, self.states[3]) # Waiting
@@ -217,32 +221,32 @@ class BasePlugin:
                     UpdateDevice(Unit, 1, self.states[6]) # Back to home
 
         elif self.controlUnit == Unit:
-            
+
             if Level == 10: # Clean
                 if self.apiRequest('start') and self.isOFF:
                     UpdateDevice(self.statusUnit, 1, self.states[5])  # Cleaning
-                    
+
             elif Level == 20: # Home
                 if self.apiRequest('home') and sDevice.sValue in [
                     self.states[5], self.states[3], self.states[10]]: # Cleaning, Waiting, Paused
                     UpdateDevice(self.statusUnit, 1, self.states[6])  # Back to home
-            
+
             elif Level == 30: # Spot
                 if self.apiRequest('spot') and self.isOFF and sDevice.sValue != self.states[8]: # Spot cleaning will not start if Charging
                     UpdateDevice(self.statusUnit, 1, self.states[11])  # Spot cleaning
-            
+
             elif Level == 40: # Pause
                 if self.apiRequest('pause') and self.isON:
                     if sDevice.sValue == self.states[11]: # For Spot cleaning - Pause treats as Stop
                         UpdateDevice(self.statusUnit, 0, self.states[3])  # Waiting
                     else:
                         UpdateDevice(self.statusUnit, 0, self.states[10])  # Paused
-            
+
             elif Level == 50: # Stop
                 if self.apiRequest('stop') and self.isON and sDevice.sValue not in [self.states[11], self.states[6]]: # Stop doesn't work for Spot cleaning, Back to home
                     UpdateDevice(self.statusUnit, 0, self.states[3]) # Waiting
-                
-            elif Level == 60: # Find 
+
+            elif Level == 60: # Find
                 self.apiRequest('find')
 
         elif self.fanDimmerUnit == Unit and Parameters['Mode5'] == 'dimmer':
@@ -295,10 +299,10 @@ class BasePlugin:
             self.heartBeatCnt += 1
 
 
-    @property              
+    @property
     def isON(self):
         return Devices[self.statusUnit].nValue == 1
-    
+
     @property
     def isOFF(self):
         return Devices[self.statusUnit].nValue == 0
@@ -307,8 +311,12 @@ class BasePlugin:
         if not self.tcpConn.Connected(): return False
         cmd = [cmd_name]
         if cmd_value: cmd.append(cmd_value)
-        self.tcpConn.Send(msgpack.packb(cmd, use_bin_type=True))
-        return True
+        try:
+            self.tcpConn.Send(msgpack.packb(cmd, use_bin_type=True))
+            return True
+        except msgpack.PackException as e:
+            Domoticz.Error('Pack exception [%s]' % str(e))
+            return False
 
 
 

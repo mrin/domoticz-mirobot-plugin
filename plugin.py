@@ -89,6 +89,7 @@ class BasePlugin:
         13: 'Shutting down',
         14: 'Updating',
         15: 'Docking',
+        17: 'Zone cleaning',
         100: 'Full'
     }
 
@@ -173,7 +174,7 @@ class BasePlugin:
                 if result['cmd'] == 'status':
 
                     UpdateDevice(self.statusUnit,
-                                 (1 if result['state_code'] in [5, 6, 11] else 0), # ON is Cleaning, Back to home, Spot cleaning
+                                 (1 if result['state_code'] in [5, 6, 11, 17] else 0), # ON is Cleaning, Back to home, Spot cleaning
                                  self.states.get(result['state_code'], 'Undefined')
                                  )
 
